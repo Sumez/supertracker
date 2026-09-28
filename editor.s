@@ -204,7 +204,7 @@ stx ScrollY ; TODO: Dedicated GUI handler?
 	lda #%00100000
 	sta ColorBlend
 	sta CGADSUB
-
+	
 	lda #VBLANK_NMI|AUTOREAD
 	sta PPUNMI
 	wai
@@ -309,7 +309,7 @@ LoadSong:
 	bne :+
 		jmp @resetSamples ; 1->2 = Fill more empty instrument data. Also: updated samples :\
 	:
-	@resetData:	
+	@resetData:
 	lda #$ff
 	ldx #0
 	:	sta f:SONG,X
@@ -382,7 +382,7 @@ LoadSong:
 		inx
 		cpx #$200
 	bne :-
-		
+	
 	
 	ldx #@HeaderVerificationCode
 	stx HEADER
@@ -390,7 +390,6 @@ LoadSong:
 	sta HEADER+2
 
 	plb
-	
 rts
 
 .macro jumpTable TableReference
@@ -467,9 +466,9 @@ ClearTilemap:
 ; Set header palette (TODO: Only necessary on program load)
 	seta8
 	lda #(3<<2)|$20 ; palette 3, priority
-	ldx #62
+	ldx #126
 	:
-		sta f:TilemapBuffer+$C0+1,x
+		sta f:TilemapBuffer+$80+1,x
 		dex
 		dex
 	bpl :-
@@ -673,10 +672,7 @@ HandleInput:
 		;RETURNS - no more inputs read this frame
 	:
 
-HandleCursorInput:
-
-jmp (Input_CustomHandler)
-
+HandleCursorInput: jmp (Input_CustomHandler)
 CutSelection: jmp (Input_CutSelection)
 CopySelection: jmp (Input_CopySelection)
 EndSelection:

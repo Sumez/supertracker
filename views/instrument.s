@@ -408,7 +408,7 @@ PrintText:
 		rts
 	:
 	sta TilemapBuffer+10,Y
-	lda #$20|$4<<2
+	lda #$20|$3<<2
 	sta TilemapBuffer+11,Y
 	iny
 	iny
@@ -529,6 +529,10 @@ ShowCursor:
 	tax
 	
 	lda #24
+	cpx #0
+	beq :+
+		lda #4
+	:
 	sta HighlightLength
 
 	lda CursorXOffsets,X
@@ -577,11 +581,13 @@ MenuItems:
 MenuLines:
 .addr MenuOffset0,MenuOffset1,MenuOffset2,MenuOffset3,MenuOffset4
 CursorYOffsets:
-.byte MenuRow0,MenuRow1,MenuRow2,MenuRow3,MenuRow4
+.byte MenuOffset0,MenuRow1,MenuRow2,MenuRow3,MenuRow4
 CursorXOffsets:
-.byte $1f, 0, 0, 1, 1
+;.byte $1f, 0, 0, 1, 1
+.byte $1f, $1f, $1f, $1f, $1f
 CursorSizes:
-.byte 1,2,2,2,2
+;.byte 3,2,2,2,2
+.byte 3,3,3,3,3
 
 PreviewInstrument:
 	stz BufferPreviewSound

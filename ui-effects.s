@@ -16,6 +16,8 @@ Bg3Offset: .res 2
 .export Vfx_Init = Init, Vfx_ResetOnNavigation = Reset, Vfx_Update = Update, Vfx_Update_Vblank = Update_Vblank
 
 Init:
+	jsl SetupGradientHdma
+
 	stz ScrollY
 	stz ScrollY+1
 	stz BopTimer
@@ -115,13 +117,16 @@ Update_Vblank:
 	beq :+
 		lda IsPlaying
 		bne :+
+
 			lda #%00010000
 			bra :++
 	:
 		lda #%00000000
 	:
 	sta BLENDMAIN
-
+	
+	lda #%10000000
+	sta $420C
 rts
 
 HighlightRow:
@@ -273,3 +278,52 @@ UpdateMosaic:
 	ora #$0F
 	sta MOSAIC
 rts
+
+.export SetupGradientHdma
+SetupGradientHdma:
+
+	;ldx #.loword(Color1Hdma)
+	;stx Hdma4Ref
+
+	ldx #$2100|DMA_0011 ; CGADDR AND CGDATA
+	stx $4370
+
+	ldx #.loword(Color1Hdma)
+	stx $4372
+	lda #^Color1Hdma
+	sta $4374	; store to bank pointer byte
+	
+	;lda #^Color1Hdma
+	;sta $4377   ; Store bank to indirect reference
+rtl
+
+.segment "BSS"
+Hdma4Ref: .res 2 
+.segment "RODATA5"
+Color1Hdma:
+Color1HdmaValues:
+.byte 20
+.word $2121
+.word rgb(30,29,28)
+.byte 20
+.word $2121
+.word rgb(30,29,27)
+.byte 100
+.word $2121
+.word rgb(30,28,26)
+.byte 20
+.word $2121
+.word rgb(30,27,25)
+.byte 30
+.word $2121
+.word rgb(29,26,24)
+.byte 20
+.word $2121
+.word rgb(28,25,23)
+.byte 5
+.word $2121
+.word rgb(28,24,22)
+.byte 1
+.word $2121
+.word rgb(27,23,21)
+.byte 0

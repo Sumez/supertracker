@@ -6,6 +6,7 @@
 .segment "BSS"
 EditMode: .res 1
 HighlightLength: .res 1
+LastHighlightLength: .res 1
 CursorX: .res 1
 CursorY: .res 1
 CursorSize: .res 1
@@ -19,21 +20,23 @@ Init: .export Cursor_Init = Init
 	ldx #0
 	stx PrevCursorPositionOffset
 	stz EditMode
+	lda #1
+	sta LastHighlightLength
 rtl
 
 SetPaletteValues:
 	sta 0
-	lda HighlightLength
+	lda LastHighlightLength
 	pha
 	lda 0
 	:
 		sta f:TilemapBuffer+01,x
 		inx
 		inx
-		dec HighlightLength
+		dec LastHighlightLength
 	bne :-
 	pla
-	sta HighlightLength
+	sta LastHighlightLength
 rts
 
 UpdateCursorSpriteAndHighlight:
@@ -60,6 +63,8 @@ UpdateCursorSpriteAndHighlight:
 	sta PrevCursorPositionOffset,Y
 	tax
 	seta8
+	lda HighlightLength
+	sta LastHighlightLength
 	lda #(5<<2)|$20
 	jsr SetPaletteValues ; Set highlight for current position
 	
@@ -98,6 +103,9 @@ UpdateCursorSpriteAndHighlight:
 	lda CursorSize
 	cmp #1
 	beq :++
+		cmp #3
+		beq :+++
+		
 		lda #$02 ; Sprite tile index
 		sta OamBuffer+2
 		lda CursorSize
@@ -105,18 +113,24 @@ UpdateCursorSpriteAndHighlight:
 			; Largest cursor
 			lda #$04 ; Sprite tile index
 			sta OamBuffer+2+4
-			bra :+++
+			bra @spriteAttr
 		:
 		lda #$05 ; Sprite tile index
 		sta OamBuffer+2+4
 		lda #$15 ; Sprite tile index
 		sta OamBuffer+2+8
-		bra :++
+		bra @spriteAttr
 	:
-		; Smalles cursor
+		; Smallest cursor
 		lda #10 ; Sprite tile index
 		sta OamBuffer+2
+		bra @spriteAttr
 	:
+		; Arrow pointer
+		lda #12 ; Sprite tile index
+		sta OamBuffer+2
+	
+	@spriteAttr:
 	ldy #(%00110000)
 	lda EditMode
 	beq :+
@@ -137,9 +151,12 @@ UpdateCursorSpriteAndHighlight:
 	sta OamBuffer+$200
 	
 	lda CursorSize
-	beq :++
+	beq :+++
+		cmp #3
+		beq :+
 		cmp #1
-		bne :+
+		bne :++
+			:
 			; Smallest. Only one sprite
 			lda #224
 			sta OamBuffer+1+4
@@ -147,7 +164,7 @@ UpdateCursorSpriteAndHighlight:
 			; Biggest. Two sprites
 			lda #224
 			sta OamBuffer+1+8
-	:
+	: ; Otherwise, all three
 	
 	lda #1
 	sta RefreshOam

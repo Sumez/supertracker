@@ -43,8 +43,6 @@ stz NMITEST
 	sta PPUBRIGHT
 	
 
-
-
 .importzp BufferedVwfTiles
 .import CopyEntireTilemap, CopyBackdropTilemap, CopyGuiTilemap, UpdateGui, CopyVwfTiles
 
