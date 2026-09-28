@@ -90,7 +90,7 @@ PreviousScreen: .res 1
 ResetStack: .res 2
 SelectingActive: .res 1
 ExpectDoubleTap: .res 1
-BufferedNumber: .res 3 ; Two hex digits and $FF
+BufferedNumber: .res 4 ; Two hex digits and $FF or three decimal digits and $FF
 
 .segment CompiledPlaybackDataSegment
 ; Share the same generic RAM space for both the storage handler and compiled playback
@@ -283,7 +283,7 @@ jmp NavigateToScreen
 
 LoadSong:
 @HeaderVerificationCode = $EFCD ; Constant, indicates Initialized SRAM data
-@SaveBreakingBuildVersion = 2;TODO! 	; Increased every time a public build breaks older save data. If feeling nice, create code to convert from one version to another
+@SaveBreakingBuildVersion = 3;TODO! 	; Increased every time a public build breaks older save data. If feeling nice, create code to convert from one version to another
 	phb
 	lda #^HEADER
 	pha
@@ -296,8 +296,7 @@ LoadSong:
 	cmp #@SaveBreakingBuildVersion
 	; TODO: Give user a nice message asking them if they want to reset the data, or give them a chance to back it up first
 	bne :+
-		plb
-		rts ; Valid song already present, use sram as-is
+		jmp @loadedSong ; Valid song already present, use sram as-is
 	:
 		
 	; Valid song data but old version:
@@ -308,6 +307,10 @@ LoadSong:
 	cmp #1
 	bne :+
 		jmp @resetSamples ; 1->2 = Fill more empty instrument data. Also: updated samples :\
+	:
+	cmp #2
+	bne :+
+		jmp @resetHeader ; 2->3 = Default tempo setting and empty song name
 	:
 	@resetData:
 	lda #$ff
@@ -383,12 +386,32 @@ LoadSong:
 		cpx #$200
 	bne :-
 	
+	@resetHeader:
+	lda #$00
+	ldx #6 ; Bytes 6 to end of header = $00
+	:
+		sta f:HEADER,X
+		inx
+		cpx #(TITLE-HEADER)
+	bne :-
+	lda #$ff ; Title and Author = all $FF
+	:
+		sta f:HEADER,X
+		inx
+		cpx #(AUTHOR+$40-HEADER)
+	bne :-
+	lda #$06
+	sta f:HEADER+4
+	lda #$50
+	sta f:HEADER+5
 	
+	@fixedSong:
 	ldx #@HeaderVerificationCode
 	stx HEADER
 	lda #@SaveBreakingBuildVersion
 	sta HEADER+2
 
+	@loadedSong:
 	plb
 rts
 
@@ -678,6 +701,53 @@ CopySelection: jmp (Input_CopySelection)
 EndSelection:
 	stz SelectingActive
 jmp (Input_EndSelection)
+
+Divide:
+	stx WRDIVL
+	sta WRDIVB
+	ldx #2
+	:	dex ; Wait 12 cycles
+	bne :-
+	nop ; Wait 2 more
+	ldx RDDIVL ; Result of first division
+rts
+.export GetBpm
+GetBpm:
+
+	ldx #60000
+	lda f:HEADER+4 ; Speed (tick count per row)
+	jsr Divide
+	lda f:HEADER+5 ; Tempo (tick speed (wait time at 4khz))
+	jsr Divide ; X is now the BPM in binary
+	
+	lda #$ff
+	sta BufferedNumber+3
+
+	lda #10
+	jsr Divide
+	lda RDMPYL ; Remainder from a division by 10: First digit
+	ora #$40
+	sta BufferedNumber+2
+	lda #10
+	jsr Divide
+	lda RDMPYL ; Remainder from a division by 10: Second digit
+	ora #$40
+	sta BufferedNumber+1
+	jsr Divide
+	ldy #(.loword(BufferedNumber) + 1)
+	lda RDMPYL ; Remainder from a division by 10: Third digit
+	beq :+
+		dey
+		ora #$40
+		sta BufferedNumber+0
+	:
+
+rtl
+
+
+
+
+
 
 ; TODO: Dedicated GUI handler?
 

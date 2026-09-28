@@ -25,6 +25,10 @@
 SAMPLE_DATA:
 .align $100
 ;.incbin "bin/samples2.brrp"
+AddSample "B3 Organ", "samples/b3organ-C4_2.brr"
+AddSample "Piano", "samples/piano-C4.brr"
+AddSample "e-Piano", "samples/epiano-C4.brr"
+AddSample "e-Piano 12k", "samples/epiano-C4-12k.brr"
 .incbin "bin/rgsh.brrp"
 AddSample "Sample_0", "music/sample0.brr"
 AddSample "Sample_1", "music/sample1.brr"

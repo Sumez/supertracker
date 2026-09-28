@@ -146,7 +146,7 @@
       <Output>gfx/cursor.chr</Output>
       <Output>gfx/cursor.pal</Output>
       <Output>gfx/cursor.map</Output>
-      <LastProcessed>2026-09-24T00:08:26.6170308+02:00</LastProcessed>
+      <LastProcessed>2026-09-24T11:26:43.1473546+02:00</LastProcessed>
       <Property>
         <Key>DiscardRedundant</Key>
         <Value>0</Value>
@@ -535,7 +535,7 @@
     <Pipeline>
       <Type>tilemap.custom</Type>
       <Output>gfx/gui2.inc</Output>
-      <LastProcessed xsi:nil="true" />
+      <LastProcessed>2026-09-24T15:59:11.3704047+02:00</LastProcessed>
       <Property>
         <Key>script-type</Key>
         <Value>Python</Value>
@@ -543,6 +543,50 @@
       <Property>
         <Key>script-file</Key>
         <Value>gfx/stage-convert.py</Value>
+      </Property>
+    </Pipeline>
+  </File>
+  <File>
+    <Id>43</Id>
+    <RelativePath>gfx/vwf-large.png</RelativePath>
+    <Mode>ContentPipeline</Mode>
+    <Pipeline>
+      <Type>chr</Type>
+      <Output>gfx/vwf-large.chr</Output>
+      <Output>gfx/vwf-large.pal</Output>
+      <Output>gfx/vwf-large.map</Output>
+      <LastProcessed>2026-09-26T11:36:31.3612473+02:00</LastProcessed>
+      <Property>
+        <Key>DiscardRedundant</Key>
+        <Value>0</Value>
+      </Property>
+      <Property>
+        <Key>ReducePalette</Key>
+        <Value>0</Value>
+      </Property>
+      <Property>
+        <Key>ExportPalette</Key>
+        <Value>0</Value>
+      </Property>
+      <Property>
+        <Key>BigTiles</Key>
+        <Value>1</Value>
+      </Property>
+      <Property>
+        <Key>ExportTileMap</Key>
+        <Value>0</Value>
+      </Property>
+      <Property>
+        <Key>TileMapAttribute</Key>
+        <Value>0000</Value>
+      </Property>
+      <Property>
+        <Key>ChrType</Key>
+        <Value>Bpp2</Value>
+      </Property>
+      <Property>
+        <Key>Palette</Key>
+        <Value>0,0,0,0,0;2,118,66,138,255;1,255,255,255,255</Value>
       </Property>
     </Pipeline>
   </File>

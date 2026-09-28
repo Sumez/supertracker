@@ -240,8 +240,8 @@ PlayMusic:
 	call !LoadTrack
 	
 	mov SPC_TIMER0,TrackTempo
-	mov SPC_CONTROL,#$01
-	mov a,SPC_COUNTER0
+	mov SPC_CONTROL,#$01 ; Enables timer 0
+	mov a,SPC_COUNTER0 ; Reset the 4-bit counter
 
 	; tell PORT3 that playback is active
 	mov SPC_PORT3, #0
@@ -255,7 +255,7 @@ PlayMusic:
 		call !CheckCpuCommunication
 		mov a, SPC_COUNTER0
 		beq @wait
-		mov CatchUp, a
+		mov CatchUp, a ; If count was more than 1, try to catch up, skipping the check for cpu comms
 		@repeatTickImmediately:
 			eor OneTwo, #1 ; Halves set tempo of song, allows us to support lower tempo settings
 			beq :+

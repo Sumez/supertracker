@@ -4,6 +4,7 @@
 
 .segment "CODE7"
 Name: .byte "(Untitled_song)",$ff
+Text_Bpm: .byte "_BPM__",$ff
 
 .segment UnusedItemsSegment
 UnusedChains: .res $100
@@ -58,8 +59,17 @@ FocusView:
 	ldy #$ffff
 	sty SelectionStart
 	
-	ldy #.loword(Name)
-	jsl WriteTextToHeader
+ldx #$86
+ldy #.loword(Name)
+jsl WriteTextToTilemapIndex
+.import GetBpm
+jsl GetBpm
+jsl BufferNewString
+ldy #.loword(Text_Bpm)
+jsl BufferString
+jsl PrintBufferedString
+
+
 	jsl ShowCursor_long
 	jsl SongScrolled_long
 rts
