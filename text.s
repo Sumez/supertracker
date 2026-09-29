@@ -5,6 +5,14 @@
 .exportzp BufferedVwfTiles
 .export CopyVwfTiles
 
+.segment "CODE7"
+StatusCopied:
+.byte "COPIED!",$ff
+StatusPasted:
+.byte "INSERTED!",$ff
+StatusCut:
+.byte "COPIED_AND_ERASED!",$ff
+
 .segment "RODATA"
 TextAddresses:
 DialogChr:
@@ -21,6 +29,8 @@ CursorSpriteChrEnd:
 .segment "BSS"
 VwfBuffer: .res $200 ; TODO: Find realistic size limit
 VwfBuffer_End:
+.res 16 ; Extra buffer for garbage at the end
+.res $200 ; buffer specifically for statustext
 ;.res 16 ; Extra buffer for garbage at the end (unnecessary because VwfText is always overwritten at the end)
 VwfText: .res $17
 StringBuffer: .res $30
@@ -28,6 +38,10 @@ LastByteOffset: .res 2
 LastByteOffset_saved: .res 2
 LastTileIndex: .res 2
 LastTileIndex_saved: .res 2
+
+LastByteOffset_temp: .res 2 ; TODO: Can we just use same solution for the "saved" context?
+LastTileIndex_temp: .res 2
+
 WriteStringPosition: .res 2
 BufferStartAddress: .res 2
 ChrStartAddress: .res 2
@@ -48,8 +62,6 @@ CharSizes:
 
 
 .segment "CODE7"
-TEST: .byte $80,$81,$82,$83,$84,$85,$86,$87,$88,$89,$8A,$8B,$8C,$8D,$8E,$8F
-.byte $ff
 
 VwfChr:
 .incbin "gfx/vwf.chr",0,$300
@@ -57,11 +69,34 @@ VwfChrEnd:
 
 .segment "CODE7"
 .export LoadTextGraphics = LoadChr
-.export ResetVwfText
+.export ResetVwfText, ResetStatusBoxText
 
 LoadChr:
 	LoadBlockToVRAM DialogChr, Bg3ChrBase, (DialogChrEnd - DialogChr)
 	LoadBlockToVRAM CursorSpriteChr, (SpriteChrBase), (CursorSpriteChrEnd - CursorSpriteChr)
+rtl
+
+
+WriteStatusText:
+	jsr ResetStatusBoxText
+	ldx LastTileIndex
+	stx LastTileIndex_temp
+	ldx LastByteOffset
+	stx LastByteOffset_temp
+	ldx #$20
+	stx LastTileIndex
+	ldx #$200
+	stx LastByteOffset
+	
+	jsl bufferText
+	lda #$ff ; indicates the status text
+	sta BufferedVwfTiles
+	; No need to update tilemap, as it's already pointing to the tiles dedicated to status message
+
+	ldx LastTileIndex_temp
+	stx LastTileIndex
+	ldx LastByteOffset_temp
+	stx LastByteOffset
 rtl
 
 Vwf_RecordRestorePoint:
@@ -98,6 +133,21 @@ ResetVwfText:
 	;sta ChrStartAddress
 	seta8
 rtl
+ResetStatusBoxText:
+	seta16
+	ldx #0
+	lda f:VwfBuffer+$200,X
+	beq :++ ; Already empty
+	lda #0
+	:
+		sta f:VwfBuffer+$200,X
+		inx
+		inx
+		cpx #.loword(VwfBuffer_End - VwfBuffer)
+	bcc :-
+	:
+	seta8
+rts
 
 BufferNewString:
 	ldx #0
@@ -246,7 +296,7 @@ bufferText:
 	lda #$80
 	clc
 	adc LastTileIndex
-	sty LastTileIndex
+	phy
 	seta8
 	ldx #0
 	:
@@ -254,7 +304,10 @@ bufferText:
 		inc a
 		inx
 		dey
+		cpy LastTileIndex
 	bne :-
+	ply
+	sty LastTileIndex
 	lda #$ff
 	sta VwfText,X
 	
@@ -332,7 +385,17 @@ rtl
 .a8
 
 CopyVwfTiles: ; Called during NMI if tiles are buffered
-	stz BufferedVwfTiles
-	;LoadOffsetBlockToVRAM ^VwfBuffer, BufferStartAddress, ChrStartAddress, $100
-	LoadBlockToVRAM VwfBuffer, (Bg3ChrBase+$800), $200
-rtl
+	bmi :+
+		; #1 = Use regular buffer
+		stz BufferedVwfTiles
+		;LoadOffsetBlockToVRAM ^VwfBuffer, BufferStartAddress, ChrStartAddress, $100
+		LoadBlockToVRAM VwfBuffer, (Bg3ChrBase+$800), $200
+		rtl
+	:
+		; #$ff = Use status box buffer
+		stz BufferedVwfTiles
+		;LoadOffsetBlockToVRAM ^VwfBuffer, BufferStartAddress, ChrStartAddress, $100
+		LoadBlockToVRAM (VwfBuffer+$200), (Bg3ChrBase+$A00), $200
+		lda #80
+		sta StatusBoxTimer
+		rtl

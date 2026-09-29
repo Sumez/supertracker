@@ -549,6 +549,8 @@ Paste:
 	@break:
 	
 	plb
+	ldy #.loword(StatusPasted)
+	jsl WriteStatusText
 	jsl UpdateUnusedChainsGlobal
 jmp ChainIndexWasChanged
 

@@ -145,6 +145,7 @@ stx FragmentedRemainingBytes ; TODO: Init routine for playback handler
 	stz $420C ; Halt any potential HDMA, that might interfer with our VRAM access
 	jsl LoadTextGraphics
 	jsl LoadGuiGraphics
+	jsl InitTextTilemap
 	
 	phk
 	plb
@@ -426,11 +427,51 @@ rts
 
 .export CopyEntireTilemap, CopyBackdropTilemap
 CopyEntireTilemap:
-	LoadBlockToVRAM TilemapBuffer, Bg2TileMapBase, 32*29*2
+	LoadBlockToVRAM TilemapBuffer, Bg2TileMapBase, 64*28
 rtl
 CopyBackdropTilemap:
-	LoadBlockToOffsetVRAM BackdropTilemapBuffer, Bg3Offset, 32*29*2
+	LoadBlockToOffsetVRAM BackdropTilemapBuffer, Bg3Offset, 64*28
 rtl
+
+InitTextTilemap:
+	seta16
+	lda #'_'|(3<<10)|($20<<8) ; Blank space, palette 3, priority
+	ldx #(3*64)-2 ; 3 rows
+	:
+		sta f:TilemapBuffer,x
+		dex
+		dex
+	bpl :-
+	lda #($A0+23)|(3<<10)|($20<<8) ; Status message text tiles, palette 3, priority
+	ldx #46 ; 24 tiles in the middle of the row
+	:
+		sta f:TilemapBuffer+72,x
+		dec a
+		dex
+		dex
+	bpl :-
+	seta8
+	LoadBlockToVRAM TilemapBuffer, (Bg2TileMapBase+(64*32)), 64*3
+	seta16
+	
+	lda #'_'|(4<<10)|($20<<8) ; Blank space, palette 4, priority
+	ldx #((64*28)-2)
+	:
+		sta f:TilemapBuffer,x
+		dex
+		dex
+	bpl :-
+; Set header palette (Only necessary on program load)
+	seta8
+	lda #(3<<2)|$20 ; palette 3, priority
+	ldx #126
+	:
+		sta f:TilemapBuffer+$80+1,x
+		dex
+		dex
+	bpl :-
+rtl
+
 
 .segment "CODE6"
 
@@ -478,23 +519,22 @@ ShowClearBackdrop:
 jmp DrawToBeatLines
 
 ClearTilemap:
+	lda #'_' ; Blank space, no palette change
+	ldx #((64*2)-2) ; 2 rows (header text)
+	:
+		sta f:TilemapBuffer+(64*2),x
+		dex
+		dex
+	bpl :-
 	seta16
 	lda #'_'|(4<<10)|($20<<8) ; Blank space, palette 4, priority
-	ldx #((32*32*2)-2)
+	ldx #((64*22)-2) ; 22 rows (pattern data etc)
 	:
-		sta f:TilemapBuffer,x
+		sta f:TilemapBuffer+(64*6),x
 		dex
 		dex
 	bpl :-
-; Set header palette (TODO: Only necessary on program load)
 	seta8
-	lda #(3<<2)|$20 ; palette 3, priority
-	ldx #126
-	:
-		sta f:TilemapBuffer+$80+1,x
-		dex
-		dex
-	bpl :-
 rts
 
 WriteTilemapHeader:
@@ -657,8 +697,12 @@ HandleInput:
 		lda ButtonPushed+1
 		bit #>KEY_B
 		beq :+
-			jsr CopySelection
-			jmp EndSelection
+			lda SelectingActive
+			beq :+
+				jsr CopySelection
+				ldy #.loword(StatusCopied)
+				jsl WriteStatusText
+				jmp EndSelection
 		:
 		bit #>KEY_Y
 		beq :+
@@ -669,8 +713,12 @@ HandleInput:
 		lda ButtonPushed
 		bit #<KEY_X
 		beq :+
-			jsr CutSelection
-			jmp EndSelection
+			lda SelectingActive
+			beq :+
+				jsr CutSelection
+				ldy #.loword(StatusCut)
+				jsl WriteStatusText
+				jmp EndSelection
 		:
 
 		; TOOD: While selecting with L button, only allow cursor movements or combination inputs

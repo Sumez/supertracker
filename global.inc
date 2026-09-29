@@ -33,8 +33,7 @@ Selection_Width = 4
 Selection_Height = 6
 
 ; Global routines
-.global NavigateToScreen, NavigateToPreviousScreen, WriteTilemapText, WriteTilemapHeader, WriteTilemapHeaderId
-.global BufferNewString, BufferString, PrintBufferedString, WriteTextToTilemapIndex, WriteTextToHeader, ResetVwfText, Vwf_RecordRestorePoint, Vwf_ReturnToRestorePoint
+.global NavigateToScreen, NavigateToPreviousScreen
 
 ; Playback stuff
 .global PlayFullSong
@@ -46,9 +45,14 @@ Selection_Height = 6
 ; Cursor stuff
 .global CursorOffset, CursorX, CursorY, CursorSize, UpdateCursorSpriteAndHighlight, HighlightLength
 
+; Text stuff
+.global StatusCopied, StatusPasted, StatusCut
+.global BufferNewString, BufferString, PrintBufferedString, WriteTextToTilemapIndex, WriteTextToHeader, ResetVwfText, Vwf_RecordRestorePoint, Vwf_ReturnToRestorePoint
+.global WriteTilemapText, WriteTilemapHeader, WriteTilemapHeaderId, WriteStatusText
+
 ; Fx stuff
 .global HighlightRow, HighlightChainRow, HighlightChannel, ShowBg3, Bg3Offset
-.global PlayMosaic, Bop
+.global PlayMosaic, Bop, StatusBoxTimer
 .global MarkSelectionArea, ClearSelectionArea
 
 .macro _PrintHexNumber Target, Pad

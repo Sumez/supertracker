@@ -6,6 +6,8 @@ HighlightSpriteStartIndex = 20
 .segment "BSS"
 BopTimer: .res 1
 MosaicTimer: .res 1
+StatusBoxTimer: .res 1
+StatusBoxTick: .res 1
 HighlightRowIndex: .res 2
 ChannelHighlights: .res 8
 ChainHighlight: .res 1
@@ -21,6 +23,7 @@ Init:
 	stz ScrollY
 	stz ScrollY+1
 	stz BopTimer
+	stz StatusBoxTimer
 	stz ShowBg3
 
 	lda #$ff
@@ -125,8 +128,14 @@ Update_Vblank:
 	:
 	sta BLENDMAIN
 	
-	lda #%10000000
-	sta $420C
+	lda StatusBoxTimer
+	bne :+
+		lda #%10000000 ; Just the gradient
+		bra :++
+	:
+		lda #%11100000 ; Gradient and statusbox color + scroll
+	:
+	sta HDMAEN
 rts
 
 HighlightRow:
@@ -182,6 +191,7 @@ rts
 Update:
 	jsr UpdateHighlights
 	jsr UpdateMosaic
+	jsr UpdateStatusBox
 rts
 
 UpdateHighlights:
@@ -254,6 +264,38 @@ DrawHighlightSprite:
 	sta OamBuffer+0+4,X
 rts
 
+UpdateStatusBox:
+	lda StatusBoxTick
+	dec a
+	and #1
+	sta StatusBoxTick
+	bne @end
+
+	lda StatusBoxTimer
+	beq @end
+	
+	dec
+	sta StatusBoxTimer
+	bne :+
+		.import ResetStatusBoxText
+		jsr ResetStatusBoxText ; Could reset the buffer at any moment, but doing it now is more likely to hit a point where we aren't doing anything else
+	:
+	seta16
+	and #$fe
+	cmp #14
+	bcc :+
+		lda #14
+	:
+	tax
+	lda StatusBoxFade,X
+	sta f:StatusBoxFadeColor
+	seta8
+@end:
+rts
+StatusBoxFade:
+.word rgb(0,0,0), rgb(1,1,1), rgb(2,2,2), rgb(3,3,3), rgb(4,4,4), rgb(7,7,7), rgb(10,10,10), rgb(15,15,15)
+
+
 UpdateMosaic:
 	lda MosaicTimer
 	bne :+
@@ -284,8 +326,31 @@ SetupGradientHdma:
 
 	;ldx #.loword(Color1Hdma)
 	;stx Hdma4Ref
+	ldx #13
+	:
+		lda f:StatusBoxColorHdmaSource-1,x
+		sta f:StatusBoxColorHdma-1,x
+		dex
+	bne :-
 
-	ldx #$2100|DMA_0011 ; CGADDR AND CGDATA
+
+	ldx #(<BG3SCROLLY << 8)|DMA_00 ; Write twice to one register
+	stx $4360
+
+	ldx #.loword(StatusBoxHdma)
+	stx $4362
+	lda #^StatusBoxHdma
+	sta $4364	; store to bank pointer byte
+
+	ldx #(<CGADDR << 8)|DMA_0011 ; CGADDR AND CGDATA
+	stx $4350
+
+	ldx #.loword(StatusBoxColorHdma)
+	stx $4352
+	lda #^StatusBoxColorHdma
+	sta $4354
+
+	ldx #(<CGADDR << 8)|DMA_0011 ; CGADDR AND CGDATA
 	stx $4370
 
 	ldx #.loword(Color1Hdma)
@@ -297,9 +362,36 @@ SetupGradientHdma:
 	;sta $4377   ; Store bank to indirect reference
 rtl
 
+.segment TilemapBufferSegment
+StatusBoxColorHdma:
+.res 13
+StatusBoxFadeColor = StatusBoxColorHdma + (StatusBoxFadeColorSource - StatusBoxColorHdmaSource)
+
 .segment "BSS"
 Hdma4Ref: .res 2 
 .segment "RODATA5"
+
+boxPosition = 190
+StatusBoxHdma:
+.byte 127, 2, 0
+.byte (boxPosition - 127), 2, 0
+.byte 16
+.word 258 - boxPosition
+.byte 1, 2, 0
+.byte 0
+
+StatusBoxColorHdmaSource:
+.byte 127
+.word $0, $0
+.byte (boxPosition - 127)
+.word $0, $0
+.byte 16
+.word $0000
+StatusBoxFadeColorSource: .word rgb(7,7,7)
+.byte 1
+.word $0, $0
+.byte 0
+
 Color1Hdma:
 Color1HdmaValues:
 .byte 20

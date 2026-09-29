@@ -1149,6 +1149,8 @@ Paste:
 	bne @colLoop
 
 	plb
+	ldy #.loword(StatusPasted)
+	jsl WriteStatusText
 jmp NoteWasChanged ; TODO: Call changed event for each pasted row, but only redraw the tiles once, so playback plays correctly
 
 .macro PasteRoutine Target, ClearRow

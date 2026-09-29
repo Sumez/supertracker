@@ -896,6 +896,8 @@ Paste:
 		iny
 		dec @rowCount
 	bne @rowLoop
+	ldy #.loword(StatusPasted)
+	jsl WriteStatusText
 	jsl UpdateUnusedPhrases
 jmp PhraseIndexWasChanged
 
