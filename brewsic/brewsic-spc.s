@@ -29,6 +29,8 @@ ChPatternPositionMemory: .res Channels
 ChEnvelopePointer: .res Channels ; Keep in ZP to load into Y
 ChVolumeEnvelopeH: .res Channels ; Keep in ZP for quicker CMP
 ChVolumeEnvelopeCounter: .res Channels
+NoteStates: .res 1
+EchoStates: .res 1
 
 ;Channel buffer
 ChVolume: .res Channels
@@ -48,11 +50,11 @@ OneTwo: .res 1
 
 
 .segment "SPCBSS":absolute
+BSS_START:
 ChPatternPosition: .res Channels
 CurrentOrderIndex: .res 1
 ChPatternPointers: .res Channels * 2
 ChTranspose: .res Channels
-NoteStates: .res 1
 ChLastPitchAdjust: .res Channels ; TODO: Reset these?
 ChLastVolumeAdjust: .res Channels
 ChLastNote: .res Channels
@@ -69,6 +71,7 @@ ChOrigPitchL: .res Channels
 ChOrigPitchH: .res Channels
 ChCurrentInstrumentVolume: .res Channels
 ChVolumeEnvelopeL: .res Channels
+ChForceEcho: .res Channels
 NoteOff: .res 1
 LoopToPattern: .res 1
 
@@ -162,28 +165,31 @@ dsp DSP_DIR, (SampleDirectoryAddress >> 8)
 
 dsp DSP_FLG, $20 ; <- disables echo
 
-dsp DSP_ESA, $7e
-dsp DSP_EDL, $02
-dsp $0f, 127
-dsp $1f, 0
-dsp $2f, 0
-dsp $3f, 0
-dsp $4f, 0
-dsp $5f, 0
-dsp $6f, 0
-dsp $7f, 0
-;dsp DSP_FLG, $00 ; <- enables echo
-;dsp DSP_EVOL, $7f
-;dsp DSP_EVOLR, $7f
-dsp DSP_EFB, 100
-dsp DSP_EON, $ff
+MAX_ECHO_DELAY = 6
+ECHO_BUFFER_SIZE = $800 * MAX_ECHO_DELAY
+ECHO_BUFFER_START = (BSS_START - ECHO_BUFFER_SIZE) & $FF00
+
+dsp DSP_ESA, >ECHO_BUFFER_START
+dsp DSP_EDL, $03 ; Default echo delay of 3
+
+; Set default FIR filter of 1.0 + 7x 0.0
+dsp DSP_C0, 127
+dsp DSP_C1, 0
+dsp DSP_C2, 0
+dsp DSP_C3, 0
+dsp DSP_C4, 0
+dsp DSP_C5, 0
+dsp DSP_C6, 0
+dsp DSP_C7, 0
+dsp DSP_EFB, 100 ; Default feedback of 100 (gets changed when enabling echo on a channel)
+dsp DSP_EON, 0 ; Disable echo on all channels
 
 mov OneTwo, #0
 ;TODO: Clear communication ram
 ; Initialization done, wait for commands in a tight loop
 mov Com_LastReceived, #0
 mov SPC_CONTROL,#%00110000 ; Reset input values
-mov SPC_PORT3, #0
+mov SPC_PORT3, #$ff ; No music playing
 mov SPC_PORT2, #0
 mov SPC_PORT1, #$AB ; Tell CPU we are ready for the next command
 mov SPC_PORT0, #$CD
@@ -239,6 +245,11 @@ PlayMusic:
 	mov sp, x
 	call !LoadTrack
 	
+	dsp DSP_EON, 0 ; Disables echo on all channels
+	dsp DSP_FLG, $00 ; Enables echo buffer
+	dsp DSP_EVOL, $7f ; Default echo volume
+	dsp DSP_EVOLR, $7f ; Default echo volume
+	
 	mov SPC_TIMER0,TrackTempo
 	mov SPC_CONTROL,#$01 ; Enables timer 0
 	mov a,SPC_COUNTER0 ; Reset the 4-bit counter
@@ -247,8 +258,9 @@ PlayMusic:
 	mov SPC_PORT3, #0
 
 	; First tick, engage immediately to prevent "start lag",
-	mov a, #1
-	mov TickCountDown,a
+	mov NoteStates, #0
+	mov EchoStates, #0
+	mov TickCountDown, #1
 	call !TickModule
 	
 	@wait:
@@ -518,6 +530,9 @@ LoadTrack:
 	incw CurrentTrackPointer
 	mov x, #0
 	:
+		mov a, #$00
+		mov !ChForceEcho+x, a
+
 		mov a, [CurrentTrackPointer]+y
 		mov ChBaseVol+x, a
 		incw CurrentTrackPointer
@@ -650,8 +665,13 @@ StopTrack:
 	mov SPC_PORT3, a ; Also set PORT3 to tell we are done playing
 	mov SPC_DSPA, #DSP_KOF
 	mov SPC_DSPD, a
+	
+	dsp DSP_FLG, $E0 ; Disables echo buffer, mutes all channels and resets DSP (results in pops?)
+	dsp DSP_EON, 0 ; Disables echo on all channels
+	
 	mov x, #$ED ; force jumping back to regular wait loop
 	mov sp, x
+	
 ret
 
 
@@ -672,7 +692,11 @@ TickModule:
 	bpl @updateChannelLoop
 .endif
 
-	mov a, !NoteStates
+	mov a, EchoStates
+	mov SPC_DSPA, #DSP_EON
+	mov SPC_DSPD, a
+
+	mov a, NoteStates
 	mov SPC_DSPA, #DSP_KON
 	mov SPC_DSPD, a
 
@@ -683,9 +707,7 @@ TickModule:
 	mov SPC_DSPA, #DSP_KOF
 	mov SPC_DSPD, a
 	
-	
-	mov a, #0
-	mov !NoteStates, a
+	mov NoteStates, #0
 
 	inc EffectCounter
 	dec TickCountDown
@@ -729,7 +751,7 @@ TickModule:
 	bpl @effectChannelLoop
 
 	mov a, !NoteOff
-	or a, !NoteStates
+	or a, NoteStates
 	mov SPC_DSPA, #DSP_KOF
 	mov SPC_DSPD, a
 
@@ -1065,12 +1087,30 @@ ret
 E_Pan:
 	push y
 	pop x
-	mov ChPan+x, a	
+	mov ChPan+x, a
 ret
 E_Echo:
 	push y
 	pop x
+	cmp a, #0
+	bne :+
+		; Disable echo on channel
+		mov a, #$00
+		mov !ChForceEcho+x, a
+		mov a, !ChannelBits+x
+		eor a, #$ff
+		and a, EchoStates
+		mov EchoStates, a
+		ret
+	:
+	mov SPC_DSPA, #DSP_EFB
+	mov SPC_DSPD, a ; Set feedback value to the parameter value
+
+	mov a, #$ff
+	mov !ChForceEcho+x, a
 	mov a, !ChannelBits+x
+	or a, EchoStates
+	mov EchoStates, a
 	
 ret
 E_SampleOffset:
@@ -1167,6 +1207,20 @@ ReadNote:
 	mov a, [@instrumentAddress]+y ; Read instrument volume
 	mov !ChCurrentInstrumentVolume+x, a
 	inc y
+	mov a, [@instrumentAddress]+y ; Read flags
+	eor a, #$80 ; Invert bit 7 (echo)
+	or a, !ChForceEcho+x ; If either is negative (bit 7), echo is enabled
+	bpl :+
+		mov a, !ChannelBits+x
+		or a, EchoStates ; Force echo to 1 for channel
+		bra :++
+	:
+		mov a, !ChannelBits+x
+		eor a, #$ff
+		and a, EchoStates ; Force echo to 0 for channel
+	:
+	mov EchoStates, a
+	inc y
 	
 @EnvelopeAddress = Temp
 	mov a, [@instrumentAddress]+y ; Read envelope low byte
@@ -1236,8 +1290,8 @@ ReadNote:
 	mov ChFadeOutH+x, y
 	
 	mov a, !ChannelBits+x ; Set Key for current channel to "ON"
-	or a, !NoteStates
-	mov !NoteStates, a
+	or a, NoteStates
+	mov NoteStates, a
 
 	pop y
 ret
@@ -1459,7 +1513,7 @@ Octave8:
 DspChannels:
 	.byte $00,$10,$20,$30,$40,$50,$60,$70
 
-.repeat 400
+.repeat 300
 nop
 .endrepeat
 

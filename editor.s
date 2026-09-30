@@ -401,11 +401,15 @@ LoadSong:
 		inx
 		cpx #(AUTHOR+$40-HEADER)
 	bne :-
-	lda #$06
-	sta f:HEADER+4
-	lda #$50
-	sta f:HEADER+5
-	
+
+	ldx #0
+	:
+		lda f:DefaultHeader,X
+		sta f:HEADER+4,X
+		inx
+		cpx #.loword(DefaultHeader_End - DefaultHeader)
+	bne :-
+
 	@fixedSong:
 	ldx #@HeaderVerificationCode
 	stx HEADER
@@ -415,6 +419,13 @@ LoadSong:
 	@loadedSong:
 	plb
 rts
+
+DefaultHeader:
+.byte $06, $50 ; Speed and tempo
+.byte $7f, $00, $7f, $00, $7f, $00, $7f, $00, $7f, $00, $7f, $00, $7f, $00, $7f, $00 ; Volume and pan
+.byte $60, $A0, $03, $64 ; Echo volumes, delay and feedback
+.byte $7f, 0, 0, 0, 0, 0, 0, 0 ; Default FIR filter
+DefaultHeader_End:
 
 .macro jumpTable TableReference
 	lda #0

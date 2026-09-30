@@ -2,7 +2,8 @@
 .i16
 .smart
 
-.export BrewsicInit = Init, BrewsicPlayTrack = PlayTrack, BrewsicStopTrack = StopTrack, BrewsicPlaySound = PlaySound, BrewsicTransfer = TransferBlock
+.export BrewsicInit = Init, BrewsicPlayTrack = PlayTrack, BrewsicStopTrack = StopTrack, BrewsicPlaySound = PlaySound
+.export BrewsicTransfer = TransferBlock, BrewsicAwaitStoppedPlayback = AwaitStoppedPlayback
 .export BrewsicInitStream = InitStream, BrewsicTickStream = TickStream
 .exportzp BrewsicTransferDestination = TransferDestination
 
@@ -345,6 +346,11 @@ PlaySound:
 	tax
 	stx PORT0
 
+rts
+
+AwaitStoppedPlayback:
+	:	lda PORT3
+	beq :- ; PORT3 is 0 while music is playing
 rts
 
 StopTrack:

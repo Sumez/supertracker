@@ -837,12 +837,44 @@ ChangeCurrentCommand:
 		dec
 	:
 	sta PatternCommands,x
+	lda PatternCommands,x
 	beq :+
 		sta LastEditedCommand
 		lda PatternCommandParams,x
 		sta LastEditedCommandParam
+		
+		lda #0
+		xba
+		lda PatternCommands,x
+		asl
+		tax
+		ldy CommandTexts,X
+		jsl WriteStatusText
 	:
 jmp NoteWasChanged
+
+CommandTexts:
+.addr 0, t_SpeedChange, t_GainDown, t_GainUp, t_GainDown, t_PitchDown, t_PitchUp
+.addr t_Arpeggio, t_Pan, t_ChannelVolume, t_ForceEcho, t_EchoFeedback, t_EchoVolumeL, t_EchoVolumeR
+.addr t_Tempo, t_SampleDelay, t_SampleOffset
+
+t_SpeedChange: .byte "SET_SPEED_(global_-_number_of_ticks_between_rows)",$ff
+t_GainDown: .byte "(not_working_yet)_DECREASE_GAIN",$ff
+t_GainUp: .byte "(not_working_yet)_INCREASE_GAIN",$ff
+t_GainSet: .byte "(not_working_yet)_SET_GAIN",$ff
+t_PitchDown: .byte "PORTAMENTO_DOWN_-_",$ff
+t_PitchUp: .byte "PORTAMENTO_UP_-_",$ff
+t_Arpeggio: .byte "ARPEGGIO_(XY)_3_notes_-_note,_note+X,_note+Y",$ff
+t_Pan: .byte "PAN_(-32..0..+32)",$ff
+t_ChannelVolume: .byte "CHANNEL_VOLUME_(sets_base_volume_for_channel)",$ff
+;t_Echo: .byte "ECHO_(0_=_disable,_-127..+127_=_enable+set_feedback)",$ff
+t_ForceEcho: .byte "FORCE_ECHO_(echo_on_entire_channel)",$ff
+t_EchoFeedback: .byte "ECHO_FEEDBACK_(globa_value)",$ff
+t_EchoVolumeL: .byte "ECHO_VOLUME LEFT_(global_value)",$ff
+t_EchoVolumeR: .byte "ECHO_VOLUME RIGHT_(global_value)",$ff
+t_Tempo: .byte "ADJUST_TEMPO_(global_-_time_between_ticks)",$ff
+t_SampleDelay: .byte "SAMPLE_DELAY_(waits_0X_ticks_before_playing)",$ff
+t_SampleOffset: .byte "SAMPLE_OFFSET_(starts_XXx256_frames_into_sample)",$ff
 
 ChangeCurrentCommandParam:
 @signCheck = 0
@@ -853,36 +885,38 @@ ChangeCurrentCommandParam:
 	lda PatternCommands,x
 	tay
 
-	lda @signCheck
-	clc
-	adc PatternCommandParams,x
-	sta PatternCommandParams,x
-
+	lda PatternCommandParams,x
 	bit @signCheck
-	bpl :+
-		; Negative delta
-		clc
-		sbc CommandParamMaxValues,Y
-		clc
-		adc CommandParamRanges,Y
-		bcs @noOverflow
-
-			lda CommandParamMinValues,Y
-			sta PatternCommandParams,X
-			bra @noOverflow
-
-	:
-		; Positive delta
+	bpl @positiveDelta
+	@negativeDelta:
+	
 		sec
 		sbc CommandParamMinValues,Y
-		cmp CommandParamRanges,Y
-		bcc @noOverflow
-			
-			lda CommandParamMaxValues,Y
-			sta PatternCommandParams,X
-	
-	@noOverflow:
+		clc
+		adc @signCheck
+		bcs :+
+			lda #$00
+		:
+		clc
+		adc CommandParamMinValues,Y
+		bra @setValue
 
+	@positiveDelta:
+
+		clc ; Clear carry before subtract so that carry gets set when we cross the max, not when we first hit it
+		sbc CommandParamMaxValues,Y
+		clc
+		adc @signCheck
+		bcc :+
+			lda #$ff ; Keeps carry set, so add Max value to -1
+		:
+		sec
+		adc CommandParamMaxValues,Y
+		sta PatternCommandParams,X
+			
+	@setValue:
+
+	sta PatternCommandParams,X
 	lda PatternCommands,x
 	beq :+
 		sta LastEditedCommand
@@ -891,13 +925,13 @@ ChangeCurrentCommandParam:
 	:
 jmp NoteWasChanged
 
-;None,Tempo,GainDown,GainUp,GainSet,PitchDown,PitchUp,Arp,Pan,ChVolume,Echo,SampleOffset	.addr NoEffect
+;None,Speed,GainDown,GainUp,GainSet,PitchDown,PitchUp,Arp,Pan,ChVolume,Echo,SampleOffset	.addr NoEffect
 CommandParamMinValues:
-.byte 0,$01,$00,$00,$00,$00,$00,0,$e0,$80,0,$00
+.byte 0,$01,$00,$00,$00,$00,$00,0,$e0,$80,$80,$00
 CommandParamMaxValues:
-.byte 0,$40,$1f,$1f,$7f,$ff,$ff,$ff,$20,$7f,1,$ff
-CommandParamRanges:
-.byte 0,$3F,$1F,$1F,$7F,$ff,$ff,$ff,$41,$ff,1,$ff
+.byte 0,$40,$1f,$1f,$7f,$ff,$ff,$ff,$20,$7f,$7f,$ff
+CommandParamRanges: ; Useless?
+.byte 0,$3F,$1F,$1F,$7F,$ff,$ff,$ff,$41,$ff,$ff,$ff
 
 .import Chain_MovePhraseUp, Chain_MovePhraseDown
 MoveCursorDown:

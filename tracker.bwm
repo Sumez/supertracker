@@ -449,7 +449,7 @@
       <Output>gfx/vwf.chr</Output>
       <Output>gfx/vwf.pal</Output>
       <Output>gfx/vwf.map</Output>
-      <LastProcessed>2026-09-22T11:01:31.9993026+02:00</LastProcessed>
+      <LastProcessed>2026-09-29T13:16:25.4947101+02:00</LastProcessed>
       <Property>
         <Key>DiscardRedundant</Key>
         <Value>1</Value>

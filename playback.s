@@ -3,7 +3,7 @@
 .smart
 
 .importzp BrewsicTransferDestination
-.import BrewsicPlayTrack, BrewsicTransfer, BrewsicPlaySound, BrewsicStopTrack, SampleDirectoryAddress
+.import BrewsicPlayTrack, BrewsicTransfer, BrewsicPlaySound, BrewsicStopTrack, BrewsicAwaitStoppedPlayback, SampleDirectoryAddress
 .import Song_UpdateHighlight, Chain_UpdateHighlight, Pattern_UpdateBeatHighlight
 .import Instrument_OnSampleTransferDone, Instrument_CurrentSampleLoopOffset
 .import AddedSamples, SampleDirectory
@@ -204,6 +204,8 @@ jmp TransferSingleNoteToSpcAndPlay
 
 SwitchToSingleNoteMode:
 
+	jsr BrewsicAwaitStoppedPlayback ; This routine is called right after StopTrack was requested, so wait for Brewsic to actually handle that message before overwriting the command with a transfer
+
 	;lda QueuePreparePlayback
 	;beq :+
 		jsl PrepareTestPatternPlayback ; Always prepare test pattern playback because full song could have been playing
@@ -354,10 +356,9 @@ PointInstrumentToTestSample:
 	stz TestInstrument+0 ; Sample #0
 	stx TestInstrument+1 ; Pitch adjust from caller
 	stz TestInstrument+3 ; Fadeout: 0
-	sty TestInstrument+4 ; Volume from caller
-	stz TestInstrument+5 ; Volume envelope: 0
+	sty TestInstrument+4 ; Volume and flags from caller
 	stz TestInstrument+6 ; Volume envelope: 0
-	stz TestInstrument+7 ; Unused
+	stz TestInstrument+7 ; Volume envelope: 0
 	seta16
 	and #$00ff
 	asl
@@ -705,8 +706,8 @@ CopyMacrosAndInstruments:
 ;$FFF7 ; pitch adjust
 ;$00 ; fadeout
 ;$A0 ; volume
+;0 ; flags? Bit 7 is 0 if echo is ENABLED (because $FF means nothing set)
 ;$0000 ; volume envelope address
-;0 ; unused
 
 		lda f:INSTRUMENTS+0,X ; Get Added-sample Index
 		and #$00ff
@@ -742,14 +743,11 @@ CopyMacrosAndInstruments:
 		sbc #(96*64+64)
 		sta CompiledPattern+1,Y
 
-		lda #$00
-		sta CompiledPattern+3,Y ; No fadeout implemented yet(?? - just just ADSR envolope)
-		lda f:INSTRUMENTS+3,X ; Volume (8bit)
-		sta CompiledPattern+4,Y
 		lda #$0000
-		sta CompiledPattern+5,Y ; No volume envelope implemented yet
+		sta CompiledPattern+3,Y ; No fadeout implemented yet(?? - just use ADSR envolope)
 		sta CompiledPattern+6,Y ; No volume envelope implemented yet
-
+		lda f:INSTRUMENTS+3,X ; Volume (8bit) and flags (8bit)
+		sta CompiledPattern+4,Y
 		
 		tya
 		clc
@@ -1274,3 +1272,4 @@ rtl
 TestPatternSource:
 ;HEADER
 .byte $06,$50, $7F,0, $7F,0, $7F,0, $7F,0, $7F,0, $7F,0, $7F,0, $7F,0 ; Tempo / 8 * Vol+Pan
+.byte $7f, 0, $03 ; Echo vol+pan, echo delay
