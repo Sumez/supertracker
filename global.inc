@@ -292,6 +292,7 @@ Bg4ChrBase = $0000
 .charmap '!',$1a
 .charmap '?',$1b
 .charmap '#',$1c
+.charmap '=',$1d
 
 .charmap 'a',$20
 .charmap 'b',$21
@@ -322,6 +323,7 @@ Bg4ChrBase = $0000
 .charmap '.',$3a
 .charmap '-',$3b
 .charmap '+',$3c
+.charmap ',',$3d
 .charmap '~',$3e
 .charmap '_',$3f ; Space
 
