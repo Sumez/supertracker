@@ -79,7 +79,6 @@ FocusView:
 	stz BufferPreviewSound
 	jsl PrepareTestPatternPlayback
 jsl StopPlayback_long ; STOP PLAYBACK before doing anything else, to prevent random crashes
-	jsl BufferSamplePlayback
 	jsl Samples_PrepareSampleEdit
 	
 	lda PreviousAddedSampleIndex
@@ -98,7 +97,8 @@ jsl StopPlayback_long ; STOP PLAYBACK before doing anything else, to prevent ran
 		jsl WriteTextToHeader
 	:
 	jsl Vwf_RecordRestorePoint
-	jsl UpdateTilemapBuffer
+	jsl UpdateTilemapBuffer ; This also points to the sample in data rom, so make sure it's called before BufferSamplePlayback
+	jsl BufferSamplePlayback
 
 	Bind Input_StartPlayback, NoAction
 	Bind Input_CustomHandler, HandleInput
@@ -353,7 +353,7 @@ Tilemap_EchoEnabled = TilemapBuffer+MenuOffset5
 	lda #'_'
 	bit Flags
 	bmi :+
-		lda #'o'
+		lda #$6F ; checkmark
 	:
 	sta Tilemap_EchoEnabled,x
 	
@@ -571,9 +571,9 @@ Text_Empty = * - Text
 Text_TestInstrument = * - Text
 .byte "Test_note",$ff
 Text_PitchAdjust = * - Text
-.byte "_Shift_semitone",$ff
+.byte "Shift_semitone",$ff
 Text_FineTune = * - Text
-.byte "_Fine-tune_pitch",$ff
+.byte "Fine-tune_pitch",$ff
 Text_Volume = * - Text
 .byte "Volume",$ff
 Text_EnableEcho = * - Text
@@ -599,9 +599,9 @@ MenuOffset5 = MenuRow5*$40
 MenuItems:
 .addr Text_Empty, Text_TestInstrument, Text_Volume, Text_PitchAdjust, Text_FineTune, Text_EnableEcho
 MenuLines:
-.addr MenuOffset0,MenuOffset1,MenuOffset2,MenuOffset3,MenuOffset4,MenuOffset5
+.addr MenuOffset0+2,MenuOffset1+2,MenuOffset2+2,MenuOffset3+2,MenuOffset4+2,MenuOffset5+2
 CursorYOffsets:
-.byte MenuOffset0,MenuRow1,MenuRow2,MenuRow3,MenuRow4,MenuRow5
+.byte MenuRow0,MenuRow1,MenuRow2,MenuRow3,MenuRow4,MenuRow5
 CursorXOffsets:
 ;.byte $1f, 0, 0, 1, 1
 ;.byte $1f, $1f, $1f, $1f, $1f, $1f
@@ -1021,7 +1021,7 @@ SetNewSampleDirectoryIndex:
 	
 	jsl UpdateTilemapBuffer
 	jsl BufferSamplePlayback
-	jsr PreviewInstrument
+	;jsr PreviewInstrument ; This is cool, but requires a timer to cut it
 rts
 
 .import Samples_TryAddSample, Samples_RemoveAddedSample, Samples_RefreshSamplesInSpc

@@ -493,7 +493,7 @@
       <Output>gfx/font2.chr</Output>
       <Output>gfx/font2.pal</Output>
       <Output>gfx/font2.map</Output>
-      <LastProcessed>2026-09-23T15:23:55.0426944+02:00</LastProcessed>
+      <LastProcessed>2026-09-30T21:34:36.8608369+02:00</LastProcessed>
       <Property>
         <Key>DiscardRedundant</Key>
         <Value>0</Value>
@@ -535,7 +535,7 @@
     <Pipeline>
       <Type>tilemap.custom</Type>
       <Output>gfx/gui2.inc</Output>
-      <LastProcessed>2026-09-24T15:59:11.3704047+02:00</LastProcessed>
+      <LastProcessed>2026-09-30T22:26:17.0772473+02:00</LastProcessed>
       <Property>
         <Key>script-type</Key>
         <Value>Python</Value>

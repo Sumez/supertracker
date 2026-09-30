@@ -75,6 +75,13 @@ ChForceEcho: .res Channels
 NoteOff: .res 1
 LoopToPattern: .res 1
 
+ECHO_SETTINGS:
+EchoVolL: .res 1
+EchoVolR: .res 1
+EchoDelay: .res 1
+EchoFeedback: .res 1
+FirFilter: .res 8
+
 .segment "RODATA4"
 
 ;*****************************************************************************************
@@ -172,18 +179,6 @@ ECHO_BUFFER_START = (BSS_START - ECHO_BUFFER_SIZE) & $FF00
 dsp DSP_ESA, >ECHO_BUFFER_START
 dsp DSP_EDL, $03 ; Default echo delay of 3
 
-; Set default FIR filter of 1.0 + 7x 0.0
-dsp DSP_C0, 127
-dsp DSP_C1, 0
-dsp DSP_C2, 0
-dsp DSP_C3, 0
-dsp DSP_C4, 0
-dsp DSP_C5, 0
-dsp DSP_C6, 0
-dsp DSP_C7, 0
-dsp DSP_EFB, 100 ; Default feedback of 100 (gets changed when enabling echo on a channel)
-dsp DSP_EON, 0 ; Disable echo on all channels
-
 mov OneTwo, #0
 ;TODO: Clear communication ram
 ; Initialization done, wait for commands in a tight loop
@@ -224,13 +219,13 @@ ResetDsp:
 	dsp DSP_MVOLR, $7F;60
 	dsp DSP_EVOL, $00
 	dsp DSP_EVOLR, $00
-	dsp DSP_EFB, $00
+	dsp DSP_EFB, 100
 	dsp DSP_PMON, $00
 	dsp DSP_NON, $00
-	dsp DSP_EON, $00
+	dsp DSP_EON, $00 ; Disable echo on all channels
 	dsp DSP_ESA, $00
 	dsp DSP_EDL, $00
-	dsp DSP_C0, $00
+	dsp DSP_C0, $7F
 	dsp DSP_C1, $00
 	dsp DSP_C2, $00
 	dsp DSP_C3, $00
@@ -245,10 +240,38 @@ PlayMusic:
 	mov sp, x
 	call !LoadTrack
 	
+	mov SPC_DSPA, #DSP_EDL
+	mov a, !EchoDelay
+	mov SPC_DSPD, a
+	mov SPC_DSPA, #DSP_EFB
+	mov a, !EchoFeedback
+	mov SPC_DSPD, a
+
+	mov SPC_DSPA, #DSP_EFB
+	mov a, !EchoFeedback
+	mov SPC_DSPD, a
+
 	dsp DSP_EON, 0 ; Disables echo on all channels
 	dsp DSP_FLG, $00 ; Enables echo buffer
-	dsp DSP_EVOL, $7f ; Default echo volume
-	dsp DSP_EVOLR, $7f ; Default echo volume
+	
+	mov SPC_DSPA, #DSP_EVOL
+	mov a, !EchoVolL
+	mov SPC_DSPD, a
+	mov SPC_DSPA, #DSP_EVOLR
+	mov a, !EchoVolR
+	mov SPC_DSPD, a
+	
+	mov x, #7
+	mov SPC_DSPA, #(DSP_C7+$10)
+	setc
+	:
+		mov a, !FirFilter+x
+		sbc SPC_DSPA, #$10
+		mov SPC_DSPD, a
+		dec x
+	bpl :-
+		
+		
 	
 	mov SPC_TIMER0,TrackTempo
 	mov SPC_CONTROL,#$01 ; Enables timer 0
@@ -542,6 +565,14 @@ LoadTrack:
 		inc x
 		cmp x, #8
 	bne :-
+	mov x, #0
+	:
+		mov a, [CurrentTrackPointer]+y
+		mov !ECHO_SETTINGS+x, a
+		incw CurrentTrackPointer
+		inc x
+		cmp x, #12 ; 12 bytes - volL,volR,delay,feedback,8 byte FIR filter
+	bne :-
 		
 	movw ya, CurrentTrackPointer
 	movw PatternLengthTable, ya
@@ -660,14 +691,24 @@ ResetPattern:
 ret
 
 StopTrack:
-	;call !ResetDsp
-	mov a, #$ff ; All keys off. No reason to reset dsp (just results in cut-off pops)
+	;call !ResetDsp ; No reason to reset dsp (just results in cut-off pops)
+	mov a, #$ff ; All keys off
 	mov SPC_PORT3, a ; Also set PORT3 to tell we are done playing
 	mov SPC_DSPA, #DSP_KOF
 	mov SPC_DSPD, a
 	
-	dsp DSP_FLG, $E0 ; Disables echo buffer, mutes all channels and resets DSP (results in pops?)
+	; FLG bits:
+	; $80 = Soft reset (ok?)
+	; $40 = Mute all (cuts off lingering echo which sounds bad)
+	; $20 = Disables echo (actually "pauses" echo playback, which means lingering echo comes back in when it's re-enabled, we don't want that)
+	dsp DSP_FLG, $80
 	dsp DSP_EON, 0 ; Disables echo on all channels
+	mov a, !EchoFeedback
+	cmp a, #100
+	bcc :+
+		; Cap echo feedback if higher than 100, to prevent echo lingering forever
+		dsp DSP_EFB, 100
+	:
 	
 	mov x, #$ED ; force jumping back to regular wait loop
 	mov sp, x
@@ -916,12 +957,13 @@ EffectRoutines:
 	.addr E_Pan				;H
 	.addr E_ChannelVolume	;I
 	.addr E_Echo			;J
-	.addr E_SampleOffset	;K
-	.addr NoEffect	;L
-	.addr NoEffect	;M
-	.addr NoEffect	;N
-	.addr NoEffect	;O
-	.addr NoEffect	;P
+	.addr E_EchoFeedback	;K
+	.addr E_EchoVolL		;L
+	.addr E_EchoVolR		;M
+	.addr E_Tempo			;N
+.addr E_EchoDelay
+	.addr E_Delay			;O
+	.addr E_SampleOffset	;P
 	.addr NoEffect	;Q
 	.addr NoEffect	;R
 	.addr Special	;S
@@ -1113,6 +1155,39 @@ E_Echo:
 	mov EchoStates, a
 	
 ret
+
+E_EchoFeedback:
+	mov !EchoFeedback, a
+	mov SPC_DSPA, #DSP_EFB
+e_set_dsp_value:
+	mov SPC_DSPD, a ; Set feedback value to the parameter value
+ret
+E_EchoVolL:
+	mov !EchoVolL, a
+	mov SPC_DSPA, #DSP_EVOL
+bra e_set_dsp_value
+E_EchoVolR:
+	mov !EchoVolR, a
+	mov SPC_DSPA, #DSP_EVOLR
+bra e_set_dsp_value
+E_EchoDelay:
+	cmp a, #6
+	bcc :+
+		mov a, #6
+	:
+	mov !EchoDelay, a
+	mov SPC_DSPA, #DSP_EDL
+bra e_set_dsp_value
+
+E_Tempo:
+	cmp a, #0
+	beq :+
+		mov TrackTempo, a
+		mov SPC_TIMER0,TrackTempo
+	:
+ret
+
+E_Delay:
 E_SampleOffset:
 ret
 

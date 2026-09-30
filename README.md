@@ -27,12 +27,13 @@ The control scheme is optimized to the SNES's 12-button game pad.  If you are us
 ### Immediate roadmap:
 
 - Known bugs
-    - ~~Some times entering the instrument view while song is playing will cause a crash (seems random/timing based)~~ <sup>Maybe fixed? Kinda wonky</sup>
+    - ~~Some times entering the instrument view while song is playing will cause a crash (seems random/timing based)~~ <sup>Fixed</sup>
     - Sample preview in instrument view often experiences garbled sounds
+    - Entering instrument view on an instrument with no sample breaks sample preview (re-enter after assigning one)
     - Pasting into a phrase while playback is active will not update the playing phrase, only the note where the cursor was
     - Navigating from phrase back to chain refreshes the UI when it isn't necessary, causing a short blink
     - Some garbage from previous view is visible for one frame after navigating.  
-Text layer shouldjust  be hidden until it's completely rewrittet
+Text layer shouldjust  be hidden until it's completely rewritten
     -  When playing back a row in song view, you'll some times experience a visual delay. This happens if every chain on the row is different, making it take a long time to load it into the APU
 - ✅ Revised CPU controlled playback <sup>Done</sup>
     - ~~Start playback from any location in song~~ <sup>Done</sup>
@@ -43,7 +44,8 @@ Text layer shouldjust  be hidden until it's completely rewrittet
 - Improved navigation
     - ~~Show adjacent views (chain preview from song view - chain and phrase are always visible at the same time)~~ <sup>Done</sup>
     - ~~Scroll up/down on song view~~ <sup>Done</sup>
-    - "Channel bar" in the top, facilitates navigating between channels using some button combination
+    - "Channel bar" in the ~~top~~ bottom, facilitates navigating between channels using some button combination
+    - Navigate between selected entries in chain/phrase/instrument view?
     - ~~Navigate up down between sequential chains and phrases based on where in the song you are~~ <sup>Done</sup>
     - ~~Select multiple and copy/paste~~ <sup>Done</sup>
     - ~~Double tap selects next unused index~~
@@ -55,10 +57,11 @@ Text layer shouldjust  be hidden until it's completely rewrittet
     - ~~Select+Start should start at current song row when in the chain view~~ <sup>Done</sup>
     - ~~When a channel in the song playback hits an empty row, it should just loop back to the top used row before an unused one~~ <sup>Done</sup>
 - Echo filter
-    - Set echo variables and enable per-channel using commands
+    - ~~Set echo variables and enable per-channel using commands (and per-instrument)~~ <sup>Done</sup>
     - Control *maximum* echo delay using a global variable - restricts usage of that specific command
-    - Test echo directly in instrument editor
-    - Custom FIR filters (sound modulation)
+    - ~~Test echo directly in instrument editor~~ <sup>Done</sup>
+    - Custom FIR filters (sound modulation) <sup>Implemented in data and SPC driver</sup>
+    - Edit global song values for echo delay, feedback, volumes and FIR
 - Rudimentary GUI
     - ~~More pleasant temporary graphics~~ <sup>Done</sup>
     - ~~Save up sprite slots by having 32x32 sprites (a row playing in song view on all channels will now use 16 sprites plus potentially 2 from the cursor. Could easily be just 9)~~ <sup>Improved</sup>
@@ -77,7 +80,7 @@ Text layer shouldjust  be hidden until it's completely rewrittet
         - ~~Pan left/right~~
         - Volume (gain) up/down/set
         - Channel volume set
-        - Tempo change
+        - ~~Tempo change~~
         - Loop data
         - Arpeggio
     - Delay
@@ -91,7 +94,7 @@ Text layer shouldjust  be hidden until it's completely rewrittet
 - Improved sound driver
     - Better use of keyoff/keyon control instead of manual volume
     - ADSR support on instruments
-    - Transpose chains
+    - ~~Transpose chains~~ <sup>Done</sup>
 - ✅ Companion software for adding custom samples <sup>Done</sup>
     - ~~Ability to add as many samples as ExHiRom can fit~~ <sup>Done</sup>
     - ~~Manually pick which samples to include in a song in the song settings inside the tracker~~ <sup>Done</sup>

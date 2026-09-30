@@ -16,7 +16,8 @@
 
 .export FragmentedRemainingBytes
 
-PatternReferenceOffset = 18 ; Pattern references always start 18 bytes into data
+HeaderSize = 30
+PatternReferenceOffset = HeaderSize ; Pattern references always start (header size) bytes into data
 
 .segment "BSS"
 IsPlaying: .res 1
@@ -302,7 +303,7 @@ TransferEntirePlaybackBufferToSpc:
 	seta16
 	lda CurrentPatternOffset
 	clc
-	adc #18
+	adc #HeaderSize
 	tay
 	seta8
 jmp TransferPlaybackBufferToSpc
@@ -312,7 +313,7 @@ sta Playback_CurrentBeatRow ; TODO: Initiate all three Arrow data values dependi
 	seta16
 	lda CurrentPatternOffset
 	clc
-	adc #18
+	adc #HeaderSize
 	tay
 	seta8
 	jsr TransferPlaybackBufferToSpc
@@ -402,8 +403,8 @@ BeginFragmentedTransfer:
 	seta16
 	clc
 	lda CurrentPatternOffset
-	;adc #18
-	adc #20 ; TODO: Find out what the extra two bytes are?!
+	;adc #HeaderSize
+	adc #HeaderSize+2 ; TODO: Find out what the extra two bytes are?!
 	adc TrackDataAddressInSpc
 	sta FragmentedWritePosition
 	sta TestSamplePosition
@@ -495,7 +496,7 @@ UpdateNoteInPlayback: ; !!! Needs to preserve [X] into CompileSingleNoteBar
 			adc PatternOffsetReferences+1,Y
 			inc ; Skip the pattern's header byte
 			tay ; Tells compile code where to write to in buffer
-			adc #18
+			adc #HeaderSize
 			pha ; need full index for SPC transfer later
 			seta8
 			jsl CompileSingleNoteBar
@@ -679,13 +680,12 @@ CopySongHeaderAndCalculateOffsets:
 	tay ; Now Y = where we start writing pattern data
 
 	; HEADER
-	; TODO: Actually generate 18 byte header based on song settings
 	ldx #0
 	:
-		lda f:TestPatternSource,X ; "TestPatternSource" is a temporary placeholder until we get a real header
+		lda f:HEADER+4,X
 		sta CompiledPattern,X
 		inx
-		cpx #18 ; Header length
+		cpx #HeaderSize ; Header length
 	bne :-
 	stx z:PatternIndexOffset
 rts
@@ -768,7 +768,7 @@ CopyMacrosAndInstruments:
 	; Integrity check, used only for debugging. Should NEVER go to BRK
 	tya
 	sec
-	sbc #18 ; subtract header
+	sbc #HeaderSize ; subtract header
 	cmp EmptyPatternOffset
 	beq :+
 		; Something went wrong. Our size estimate didn't match what was actually output
@@ -1118,7 +1118,7 @@ rts
 	
 	CompileSinglePhrase:
 	lda #15 ; block header byte (15 = 16 uncompressed bars)
-	sta CompiledPattern+18,Y ; Remember, when using the pattern offset, add 18 to account for header
+	sta CompiledPattern+HeaderSize,Y ; Remember, when using the pattern offset, add header size to account for header
 	iny
 
 	inc
@@ -1170,7 +1170,7 @@ AddEmptyPattern:
 	sty z:EmptyPatternOffset
 	
 	lda #$80|16 ; 16 empty bars
-	sta CompiledPattern+18,Y ; Remember, when using the pattern offset, add 18 to account for header
+	sta CompiledPattern+HeaderSize,Y ; Remember, when using the pattern offset, add header size to account for header
 	iny
 	sty z:FirstRowPatternOffset ; Address after empty pattern is where all our song patterns will be added from
 rts
@@ -1180,16 +1180,16 @@ AddSingleNotePattern:
 	sty z:SingleNotePatternOffset
 	tya
 	clc
-	adc #18
+	adc #HeaderSize
 	sta z:SingleNotePatternOffsetInSpcSource
 	
 	lda #$0000 ; Block header: 1 bar (1 minus 1) + Blank byte for instrument data
-	sta CompiledPattern+18,Y ; Remember, when using the pattern offset, add 18 to account for header
+	sta CompiledPattern+HeaderSize,Y ; Remember, when using the pattern offset, add header size to account for header
 	iny
 	iny
 
 	lda #($80<<8)|(15<<8) ; Blank byte for note data + 15 empty bars ($80|15)
-	sta CompiledPattern+18,Y ; Remember, when using the pattern offset, add 18 to account for header
+	sta CompiledPattern+HeaderSize,Y ; Remember, when using the pattern offset, add header size to account for header
 	iny
 	iny
 rts
@@ -1199,7 +1199,7 @@ AddSinglePhrasePattern:
 	sty z:TestPatternOffset
 	
 	lda #$15 ; Block header: 15 bar (16 minus 1)
-	sta CompiledPattern+18,Y ; Remember, when using the pattern offset, add 18 to account for header
+	sta CompiledPattern+HeaderSize,Y ; Remember, when using the pattern offset, add header size to account for header
 	tya
 	clc
 ; Worst case scenario for a pattern size.
@@ -1214,7 +1214,7 @@ rts
 .macro CopyNotesFromPhraseToCompiledPattern SOURCE
 ;+0 = instrument id, ;+1 = command id, ;+2 = command param, ;+3 = note
 		lda f:SOURCE+2,X
-		sta CompiledPattern+18+2,Y
+		sta CompiledPattern+HeaderSize+2,Y
 		and #$ff00 ; Check if note value a note - or special command for tracker playback
 		cmp #$fc00
 		bcc :+
@@ -1222,13 +1222,13 @@ rts
 			lda f:SOURCE+0,X
 			and #$ff00
 			ora #$0080 ; Always command data (even when 0), ensures constant pattern size
-			sta CompiledPattern+18,Y ; Then store $80 in instrument byte
+			sta CompiledPattern+HeaderSize,Y ; Then store $80 in instrument byte
 			bra :++
 		:
 			lda f:SOURCE+0,X
 			ora #$0080 ; Always command data (even when 0), ensures constant pattern size
 ;			and #$00ff ; Unset command (TODO: If high byte is $FF)
-			sta CompiledPattern+18,Y
+			sta CompiledPattern+HeaderSize,Y
 		:
 .endmacro
 CopyPhraseFromBank1:
@@ -1269,7 +1269,3 @@ rtl
 
 .a8
 
-TestPatternSource:
-;HEADER
-.byte $06,$50, $7F,0, $7F,0, $7F,0, $7F,0, $7F,0, $7F,0, $7F,0, $7F,0 ; Tempo / 8 * Vol+Pan
-.byte $7f, 0, $03 ; Echo vol+pan, echo delay
