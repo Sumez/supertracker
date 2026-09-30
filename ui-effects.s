@@ -265,6 +265,17 @@ DrawHighlightSprite:
 rts
 
 UpdateStatusBox:
+	seta16
+	lda IsPlaying
+	and #$ff
+	beq :+
+		lda #rgb(2,1,0)
+	:
+	sta f:StatusBoxBackgroundColor
+	sta f:StatusBoxBackgroundColor+5
+	sta f:StatusBoxBackgroundColor+15
+	seta8
+
 	lda StatusBoxTick
 	dec a
 	and #1
@@ -366,6 +377,7 @@ rtl
 StatusBoxColorHdma:
 .res 13
 StatusBoxFadeColor = StatusBoxColorHdma + (StatusBoxFadeColorSource - StatusBoxColorHdmaSource)
+StatusBoxBackgroundColor = StatusBoxColorHdma+3
 
 .segment "BSS"
 Hdma4Ref: .res 2 
@@ -382,14 +394,21 @@ StatusBoxHdma:
 
 StatusBoxColorHdmaSource:
 .byte 127
-.word $0, $0
+.word $0000
+.word rgb(0,0,0)
+
 .byte (boxPosition - 127)
-.word $0, $0
+.word $0000
+.word rgb(0,0,0)
+
 .byte 16
 .word $0000
 StatusBoxFadeColorSource: .word rgb(7,7,7)
+
 .byte 1
-.word $0, $0
+.word $0000
+.word rgb(0,0,0)
+
 .byte 0
 
 Color1Hdma:
