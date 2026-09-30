@@ -33,6 +33,7 @@ WasChanged: .res 1
 CustomSemitoneAdjust: .res 2
 CustomPitchAdjust: .res 2
 Volume: .res 2
+Flags: .res 2
 TestNote: .res 1
 
 UnusedInstruments: .res 53
@@ -126,6 +127,8 @@ LoadView:
 		; DEFAULTS:
 		lda #$50
 		sta Volume
+		lda #$ff
+		sta Flags
 		seta16
 		stz CustomSemitoneAdjust
 		stz CustomPitchAdjust
@@ -165,6 +168,9 @@ LoadView:
 
 			lda f:INSTRUMENTS+3,X
 			sta Volume
+
+			lda f:INSTRUMENTS+4,X
+			sta Flags
 			
 			seta16
 			
@@ -219,6 +225,8 @@ UpdateTilemapBuffer:
 .assert ^TilemapBuffer = ^SampleDirectory, error
 Tilemap_SampleName = TilemapBuffer+MenuOffset0
 Tilemap_TestNote = TilemapBuffer+MenuOffset1
+Tilemap_EchoEnabled = TilemapBuffer+MenuOffset5
+
 
 	phb
 	lda #^TilemapBuffer
@@ -342,6 +350,12 @@ Tilemap_TestNote = TilemapBuffer+MenuOffset1
 	lda NotesSharp,Y
 	sta Tilemap_TestNote+2,x
 	
+	lda #'_'
+	bit Flags
+	bmi :+
+		lda #'o'
+	:
+	sta Tilemap_EchoEnabled,x
 	
 	plb
 rtl
@@ -509,10 +523,11 @@ UpdateTestInstrument:
 	clc
 	adc CustomPitchAdjust
 	tax
-	lda Volume
-	and #$00ff
-	tay
 	seta8
+	lda Flags
+	xba
+	lda Volume
+	tay ; Load both Volume and Flags into Y
 	lda CurrentInstrumentIndex
 jmp PointInstrumentToTestSample
 
@@ -535,14 +550,15 @@ ShowCursor:
 	:
 	sta HighlightLength
 
-	lda CursorXOffsets,X
+	;lda CursorXOffsets,X
+	lda #$1f
 	sta CursorX
 	
 	lda CursorYOffsets,X
 	sta CursorY
 
-	lda CursorSizes,X
-	;lda #1
+	;lda CursorSizes,X
+	lda #3
 	sta CursorSize
 
 	lda #0
@@ -560,34 +576,38 @@ Text_FineTune = * - Text
 .byte "_Fine-tune_pitch",$ff
 Text_Volume = * - Text
 .byte "Volume",$ff
+Text_EnableEcho = * - Text
+.byte "Enable_echo",$ff
 
 
-NumberOfMenuItems = 5
+NumberOfMenuItems = 6
 
 MenuRow0 = 0
 MenuRow1 = 3
 MenuRow2 = 6
 MenuRow3 = 8
 MenuRow4 = 9
+MenuRow5 = 11
 
 MenuOffset0 = MenuRow0*$40
 MenuOffset1 = MenuRow1*$40
 MenuOffset2 = MenuRow2*$40
 MenuOffset3 = MenuRow3*$40
 MenuOffset4 = MenuRow4*$40
+MenuOffset5 = MenuRow5*$40
 
 MenuItems:
-.addr Text_Empty, Text_TestInstrument, Text_Volume, Text_PitchAdjust, Text_FineTune
+.addr Text_Empty, Text_TestInstrument, Text_Volume, Text_PitchAdjust, Text_FineTune, Text_EnableEcho
 MenuLines:
-.addr MenuOffset0,MenuOffset1,MenuOffset2,MenuOffset3,MenuOffset4
+.addr MenuOffset0,MenuOffset1,MenuOffset2,MenuOffset3,MenuOffset4,MenuOffset5
 CursorYOffsets:
-.byte MenuOffset0,MenuRow1,MenuRow2,MenuRow3,MenuRow4
+.byte MenuOffset0,MenuRow1,MenuRow2,MenuRow3,MenuRow4,MenuRow5
 CursorXOffsets:
 ;.byte $1f, 0, 0, 1, 1
-.byte $1f, $1f, $1f, $1f, $1f
+;.byte $1f, $1f, $1f, $1f, $1f, $1f
 CursorSizes:
-;.byte 3,2,2,2,2
-.byte 3,3,3,3,3
+;.byte 3,2,2,2,2,1
+;.byte 3,3,3,3,3,3
 
 PreviewInstrument:
 	stz BufferPreviewSound
@@ -635,6 +655,7 @@ rts
 	beq :+
 		lda EditMode
 		bne @EditMode
+			jsr ToggleMenuOption
 			jsr PreviewInstrument
 			lda #1
 			bra @storeNewState
@@ -854,6 +875,18 @@ ChangeTestNote:
 	:
 jmp PreviewInstrument
 
+ToggleMenuOption:
+	lda CursorPosition
+	cmp #5
+	bne :+
+		lda Flags
+		eor #$80
+		sta Flags
+		jsl UpdateTilemapBuffer
+		jmp UpdateTestInstrument
+	:
+rts
+
 ChangeVolume:
 	clc
 	adc Volume
@@ -1029,6 +1062,9 @@ SaveChanges:
 	
 	lda Volume
 	sta f:INSTRUMENTS+3,X
+
+	lda Flags
+	sta f:INSTRUMENTS+4,X
 	
 	jsr Samples_RefreshSamplesInSpc ; Refreshes SPC only if new sample was added
 	
