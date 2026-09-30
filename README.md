@@ -29,7 +29,7 @@ The control scheme is optimized to the SNES's 12-button game pad.  If you are us
 - Known bugs
     - ~~Some times entering the instrument view while song is playing will cause a crash (seems random/timing based)~~ <sup>Fixed</sup>
     - Sample preview in instrument view often experiences garbled sounds
-    - Entering instrument view on an instrument with no sample breaks sample preview (re-enter after assigning one)
+    - ~~Entering instrument view on an instrument with no sample breaks sample preview (re-enter after assigning one)~~ <sup>Kinda fixed</sup>
     - Pasting into a phrase while playback is active will not update the playing phrase, only the note where the cursor was
     - Navigating from phrase back to chain refreshes the UI when it isn't necessary, causing a short blink
     - Some garbage from previous view is visible for one frame after navigating.  

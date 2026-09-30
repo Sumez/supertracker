@@ -77,11 +77,9 @@ FocusView:
 	jsr LoadView
 	stz IsTransfering
 	stz BufferPreviewSound
-	jsl PrepareTestPatternPlayback
 jsl StopPlayback_long ; STOP PLAYBACK before doing anything else, to prevent random crashes
-	jsl Samples_PrepareSampleEdit
-	
-	lda PreviousAddedSampleIndex
+
+	lda PreviousAddedSampleIndex ; Currently added sample index is loaded into "previous" so we can compare it when exiting the view
 	cmp #$ff
 	beq :+
 		ldy #.loword(Name_Existing)
@@ -95,9 +93,15 @@ jsl StopPlayback_long ; STOP PLAYBACK before doing anything else, to prevent ran
 	:
 		ldy #.loword(Name_New)
 		jsl WriteTextToHeader
+		
+		; Temporarily store the current instrument as using sample 0, so the test pattern will build properly
+		lda #0
+		jsl StoreDirectoryIndex
 	:
 	jsl Vwf_RecordRestorePoint
 	jsl UpdateTilemapBuffer ; This also points to the sample in data rom, so make sure it's called before BufferSamplePlayback
+	jsl PrepareTestPatternPlayback
+	jsl Samples_PrepareSampleEdit
 	jsl BufferSamplePlayback
 
 	Bind Input_StartPlayback, NoAction
@@ -142,7 +146,7 @@ LoadView:
 		stx CurrentInstrumentOffset
 		lda f:INSTRUMENTS+0,X
 		and #$00ff
-		sta PreviousAddedSampleIndex
+		sta PreviousAddedSampleIndex ; Store the index into AddedSamples (reused if more instruments share the same sample)
 		cmp #$ff
 		beq @noSample ; No sample = No instrument data - use defaults
 			asl
@@ -1031,19 +1035,19 @@ SaveChanges:
 	lda SampleDirectoryIndex
 	cmp #$ffff
 	bne :+
+	
 		seta8
+		; If no sample was selected, set the instrument back as "unused" by storing $ff
+		lda #$ff
+		jsl StoreDirectoryIndex
 		jmp NavigateBack
 		.a16
 	:
 	jsr Samples_TryAddSample
 	seta8
 	
-	ldx CurrentInstrumentOffset
 	lsr
-	sta f:INSTRUMENTS+0,X
-	eor #$ff
-	ldy CurrentInstrumentIndex
-	sta UnusedInstruments,Y
+	jsl StoreDirectoryIndex
 
 	lda PreviousAddedSampleIndex
 	jsr RemoveAddedSampleIfUnused
@@ -1073,6 +1077,15 @@ SaveChanges:
 	lda #1
 	ldy #$ff ; Reuse already loaded phrase / chain
 jmp NavigateToScreen
+
+StoreDirectoryIndex:
+	ldx CurrentInstrumentOffset
+	sta f:INSTRUMENTS+0,X
+	eor #$ff
+	ldy CurrentInstrumentIndex
+	sta UnusedInstruments,Y
+rtl
+
 
 RemoveAddedSampleIfUnused:
 	ldx #0

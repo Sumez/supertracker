@@ -698,10 +698,10 @@ StopTrack:
 	mov SPC_DSPD, a
 	
 	; FLG bits:
-	; $80 = Soft reset (ok?)
+	; $80 = Soft reset (ok? Nope - causes pops)
 	; $40 = Mute all (cuts off lingering echo which sounds bad)
 	; $20 = Disables echo (actually "pauses" echo playback, which means lingering echo comes back in when it's re-enabled, we don't want that)
-	dsp DSP_FLG, $80
+	; dsp DSP_FLG, $80
 	dsp DSP_EON, 0 ; Disables echo on all channels
 	mov a, !EchoFeedback
 	cmp a, #100
