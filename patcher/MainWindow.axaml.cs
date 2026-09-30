@@ -80,7 +80,7 @@ public partial class MainWindow : Window
 
 	public async void ExportSamplePack(object? sender, RoutedEventArgs args)
 	{
-		using var sourceStream = await GetSamplePackStream();
+		using var sourceStream = await GetSamplePackStream(addEndBytes: false);
 		if (sourceStream == null) return;
 		var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
 		{
@@ -98,7 +98,7 @@ public partial class MainWindow : Window
 	public async void PatchRom(object? sender, RoutedEventArgs args)
 	{
 		if (Patch.RomFilePath == null) return;
-		using var sourceStream = await GetSamplePackStream();
+		using var sourceStream = await GetSamplePackStream(addEndBytes: true);
 		if (sourceStream == null) return;
 
 		using var stream = File.OpenWrite(Patch.RomFilePath);
@@ -113,7 +113,7 @@ public partial class MainWindow : Window
 		await new MessageBox("ROM patched successfully!").ShowDialog(this);
 	}
 
-	private async Task<Stream?> GetSamplePackStream()
+	private async Task<Stream?> GetSamplePackStream(bool addEndBytes)
 	{
 		var selectedSamples = Patch.AvailableSamples.Where(s => s.Selected && s.BrrSample != null);
 
@@ -139,9 +139,12 @@ public partial class MainWindow : Window
 			writer.Write((Int16)sample.BrrSample.LoopStart);
 			writer.Write(sample.BrrSample!.SampleData);
 		}
-		// Write empty sample at the end to indicate end of data
-		writer.Write((byte)0xFF);
-		writer.Write((Int16)0);
+		if (addEndBytes)
+		{
+			// Write empty sample at the end to indicate end of data
+			writer.Write((byte)0xFF);
+			writer.Write((Int16)0);
+		}
 		writer.BaseStream.Position = 0;
 		return writer.BaseStream;
 	}
