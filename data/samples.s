@@ -25,11 +25,11 @@
 SAMPLE_DATA:
 .align $100
 ;.incbin "bin/samples2.brrp"
-AddSample "B3 Organ", "samples/b3organ-C4_2.brr"
-AddSample "Piano", "samples/piano-C4.brr"
-AddSample "e-Piano", "samples/epiano-C4.brr"
-AddSample "e-Piano 12k", "samples/epiano-C4-12k.brr"
 .incbin "bin/rgsh.brrp"
+AddSample "B3_Organ", "samples/b3organ-C4_2.brr"
+AddSample "Piano", "samples/piano-C4.brr"
+AddSample "e-Piano 12k", "samples/epiano-C4-12k.brr"
+SampleInsertionPoint: .byte $ff,$00,$00
 AddSample "Sample_0", "music/sample0.brr"
 AddSample "Sample_1", "music/sample1.brr"
 AddSample "Sample_2", "music/sample2.brr"
@@ -40,7 +40,6 @@ AddSample "Sample_6", "music/sample6.brr"
 AddNoLoopSample "bass_elec", "samples/bass_elec.brr"
 AddNoLoopSample "perc_hat_closed", "samples/perc_hat_closed.brr"
 AddNoLoopSample "perc_snare", "samples/perc_snare.brr"
-SampleInsertionPoint: .byte $ff,$00,$00
 
 .segment "CODE7"
 
