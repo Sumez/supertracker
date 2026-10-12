@@ -1,0 +1,130 @@
+<html>
+	<head>
+		<style type="text/css">
+			div {
+				margin: auto;
+				width: fit-content;
+			}
+			input {
+				width: 80px;
+				font-size: 20px;
+				padding: 10px;
+				border-radius: 10px;
+				border: 1px solid black;
+			}
+		</style>
+	</head>
+	<body>
+
+		<form>
+			<div>
+				<input id="c0" type="number" max="127" min="-180" value="127" />
+				<input id="c1" type="number" max="127" min="-180" value="0" />
+				<input id="c2" type="number" max="127" min="-180" value="0" />
+				<input id="c3" type="number" max="127" min="-180" value="0" />
+				<input id="c4" type="number" max="127" min="-180" value="0" />
+				<input id="c5" type="number" max="127" min="-180" value="0" />
+				<input id="c6" type="number" max="127" min="-180" value="0" />
+				<input id="c7" type="number" max="127" min="-180" value="0" />
+			</div>
+		</form>
+		<div><canvas id="smooth" width="700" height="200"></canvas></div>
+		<div><canvas id="rough" width="700" height="200"></canvas></div>
+
+		<script type="text/javascript">
+
+			var inputs = document.querySelectorAll('input');
+			function visualizeCoefficients() {
+				drawEq(document.getElementById('smooth'), 200);
+				drawEq(document.getElementById('rough'), 26);
+			}
+			function drawEq(canvas, numberOfPoints) {
+				var ctx = canvas.getContext('2d');
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+				const nyquistFrequency = 16000;
+				const sampleRate = 32000;
+
+				const frequencies = new Array(numberOfPoints);
+				const decibels = new Array(numberOfPoints);
+
+				for (let i = 0; i < numberOfPoints; i++) {
+					// i = 0 -> frequency = 400 Hz
+					// i = numberOfPoints - 1 -> frequency = nyquistFrequency
+					const frequency = 400 * Math.pow(nyquistFrequency / 400, i / (numberOfPoints - 1));
+					frequencies[i] = frequency;
+
+					let real = 0;
+					let imag = 0;
+					for (let j = 0; j < inputs.length; j++) {
+						const coefficient = parseInt(inputs[j].value) / 128;
+						real += coefficient * Math.cos(-2 * Math.PI * frequency * j / sampleRate);
+						imag += coefficient * Math.sin(-2 * Math.PI * frequency * j / sampleRate);
+					}
+					const magnitude = Math.sqrt(real * real + imag * imag);
+					const decibel = 20 * Math.log10(magnitude);
+					decibels[i] = decibel;
+				}
+
+				const minDecibel = -20;
+				const maxDecibel = 10;
+
+				/*ctx.beginPath();
+				ctx.moveTo(0, canvas.height);
+				for (let i = 0; i < numberOfPoints; i++) {
+					const x = (i / (numberOfPoints - 1)) * canvas.width;
+					const y = ((decibels[i] - minDecibel) / (maxDecibel - minDecibel)) * canvas.height;
+					ctx.lineTo(x, canvas.height - y);
+				}
+				// Instead of a stroke, draw a shape that represents the frequency response
+				ctx.lineTo(canvas.width, canvas.height);
+				ctx.closePath();
+				ctx.fillStyle = 'rgba(0, 0, 255, 0.3)';
+				ctx.fill();*/
+				// Draw the decibels as equal with bars, instead of a line
+				for (let i = 0; i < numberOfPoints; i++) {
+					const x = (i / (numberOfPoints)) * canvas.width;
+					const y = ((decibels[i] - minDecibel) / (maxDecibel - minDecibel)) * canvas.height;
+					ctx.fillStyle = 'rgba(0, 0, 255, 0.3)';
+					ctx.fillRect(x, canvas.height - y, canvas.width / numberOfPoints, y);
+				}
+
+				// Draw a black line at 0 decibels:
+				const zeroDecibelY = ((0 - minDecibel) / (maxDecibel - minDecibel)) * canvas.height;
+				ctx.beginPath();
+				ctx.moveTo(0, canvas.height - zeroDecibelY);
+				ctx.lineTo(canvas.width, canvas.height - zeroDecibelY);
+				ctx.strokeStyle = 'black';
+				ctx.lineWidth = 1;
+				ctx.stroke();
+
+				// Draw a red line at +3 decibels:
+				const threeDecibelY = ((3 - minDecibel) / (maxDecibel - minDecibel)) * canvas.height;
+				ctx.beginPath();
+				ctx.moveTo(0, canvas.height - threeDecibelY);
+				ctx.lineTo(canvas.width, canvas.height - threeDecibelY);
+				ctx.strokeStyle = 'red';
+				ctx.lineWidth = 1;
+				ctx.stroke();
+
+				// Split frequency array into 16 segments and print the value of each in the bottom of the canvas
+				for (let i = 0; i < 16; i++) {
+					const frequency = frequencies[Math.floor(i * (numberOfPoints - 1) / 15)];
+					const x = (i / 15) * canvas.width;
+					ctx.fillStyle = 'black';
+					ctx.font = '12px Arial';
+					ctx.textAlign = 'left';
+					ctx.fillText(frequency.toFixed(0) + ' Hz', x, canvas.height - 5);
+				}
+			}
+
+			visualizeCoefficients();
+
+			for (input of inputs) {
+				input.addEventListener('input', visualizeCoefficients);
+			}
+
+		</script>
+
+	</body>
+</html>
